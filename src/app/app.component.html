@@ -1,0 +1,27 @@
+<div style="padding: 20px; font-family: Arial, sans-serif;">
+  <h1>Sistema Pedidos360 - Cloud Native</h1>
+  
+  <div *ngIf="!usuario">
+    <p>Estado: ❌ No autenticado</p>
+    <button (click)="login()" style="padding: 10px 20px; background-color: #0078d4; color: white; border: none; cursor: pointer;">
+      Iniciar sesión con Microsoft
+    </button>
+  </div>
+
+  <div *ngIf="usuario">
+    <p style="color: green; font-weight: bold;">✅ Usuario autenticado</p>
+    <p><strong>Nombre:</strong> {{ usuario.name }}</p>
+    <p><strong>Correo:</strong> {{ usuario.username }}</p>
+    <p><strong>Tenant ID:</strong> {{ usuario.tenantId }}</p>
+
+    <button (click)="logout()" style="padding: 10px 20px; background-color: #d9534f; color: white; border: none; cursor: pointer;">
+      Cerrar sesión
+    </button>
+
+    <h3>Claims del Token de Identidad:</h3>
+    <pre style="background: #f4f4f4; padding: 15px; border-radius: 5px; max-height: 250px; overflow-y: auto;">{{ claimsJson }}</pre>
+  </div>
+
+  <hr />
+  <router-outlet></router-outlet>
+</div>
