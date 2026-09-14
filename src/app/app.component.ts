@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { MsalService } from '@azure/msal-angular';
 import { AuthenticationResult } from '@azure/msal-browser';
@@ -77,26 +77,8 @@ export class AppComponent implements OnInit {
   }
 
   consultarBackend() {
-    const account = this.msalService.instance.getActiveAccount() || this.msalService.instance.getAllAccounts()[0];
-    if (!account) return;
-
-    this.msalService.acquireTokenSilent({
-      scopes: ['openid', 'profile'],
-      account: account
-    }).subscribe({
-      next: (result) => this.ejecutarPeticion(result.idToken),
-      error: () => {
-        this.msalService.acquireTokenRedirect({
-          scopes: ['openid', 'profile'],
-          account: account
-        });
-      }
-    });
-  }
-
-  private ejecutarPeticion(token: string) {
-    const headers = new HttpHeaders({ 'Authorization': `Bearer ${token}` });
-    this.http.get('http://localhost:8080/api/pedidos', { headers }).subscribe({
+    // El MsalInterceptor configurado en app.config.ts inyecta el Bearer Token automáticamente
+    this.http.get('http://localhost:8080/api/pedidos').subscribe({
       next: (data) => this.respuestaBackend = data,
       error: (err) => console.error('Error al conectar con backend:', err)
     });
