@@ -28,8 +28,7 @@ export function MSALInstanceFactory(): IPublicClientApplication {
       redirectUri: 'http://localhost:4200'
     },
     cache: {
-      cacheLocation: BrowserCacheLocation.LocalStorage,
-      //storeAuthStateInCookie: false
+      cacheLocation: BrowserCacheLocation.LocalStorage
     }
   });
 }
@@ -38,15 +37,22 @@ export function MSALGuardConfigFactory(): MsalGuardConfiguration {
   return {
     interactionType: InteractionType.Redirect,
     authRequest: {
-      scopes: ['openid', 'profile', 'email']
+      scopes: [
+        'openid',
+        'profile',
+        'email',
+        'api://c926387b-811c-4ffb-a71a-53ff3beaedac/.default'
+      ]
     }
   };
 }
 
 export function MSALInterceptorConfigFactory(): MsalInterceptorConfiguration {
   const protectedResourceMap = new Map<string, Array<string>>();
-  // Asocia la URL del backend Spring Boot para inyectar automáticamente el token Bearer
-  protectedResourceMap.set('http://localhost:8080/api/*', ['openid', 'profile']);
+  
+  protectedResourceMap.set('http://localhost:8080/api/', [
+    'api://c926387b-811c-4ffb-a71a-53ff3beaedac/.default'
+  ]);
 
   return {
     interactionType: InteractionType.Redirect,

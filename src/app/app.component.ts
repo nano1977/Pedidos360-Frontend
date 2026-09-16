@@ -1,86 +1,110 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
-import { MsalService } from '@azure/msal-angular';
-import { AuthenticationResult } from '@azure/msal-browser';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { MsalService, MsalBroadcastService } from '@azure/msal-angular';
+import { EventMessage, EventType } from '@azure/msal-browser';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div style="padding: 20px; font-family: Arial, sans-serif;">
-      <h2>Sistema Pedidos360 - Prueba de Conexión</h2>
-
-      <!-- Estado: NO AUTENTICADO -->
-      <div *ngIf="!usuario" style="margin-top: 15px;">
-        <p style="color: #d13438; font-weight: bold;">⚠ Debes iniciar sesión antes de probar la conexión con el backend.</p>
-        <button (click)="login()" style="padding: 10px 18px; background: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
-          Iniciar Sesión con Azure AD
-        </button>
-      </div>
-
-      <!-- Estado: AUTENTICADO -->
-      <div *ngIf="usuario" style="margin-top: 15px;">
-        <p style="color: #107c41; font-weight: bold;">✔ Usuario activo: {{ usuario.name }} ({{ usuario.username }})</p>
-
-        <div style="margin-top: 15px; display: flex; gap: 10px;">
-          <button (click)="consultarBackend()" style="padding: 10px 18px; background: #107c41; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
-            Probar conexión con Backend Spring Boot
-          </button>
-
-          <button (click)="logout()" style="padding: 10px 18px; background: #a80000; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
-            Cerrar Sesión
-          </button>
-        </div>
-
-        <div *ngIf="respuestaBackend" style="margin-top: 20px; background: #eef9ff; border: 1px solid #0078d4; padding: 15px; border-radius: 6px;">
-          <h4 style="margin-top: 0; color: #0078d4;">Respuesta de Spring Boot (200 OK):</h4>
-          <pre style="background: white; padding: 10px; border-radius: 4px;">{{ respuestaBackend | json }}</pre>
-        </div>
-      </div>
-    </div>
-  `
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
-  usuario: any = null;
+
   respuestaBackend: any = null;
+  errorMensaje: string = '';
+  
+  // Usar el Client ID directo sin "api://" para evitar requerir permisos de admin en Azure
+  private readonly API_SCOPE = 'c926387b-811c-4ffb-a71a-53ff3beaedac/.default';
 
-  constructor(private http: HttpClient, private msalService: MsalService) {}
+  constructor(
+    private http: HttpClient,
+    private msalService: MsalService,
+    private msalBroadcastService: MsalBroadcastService
+  ) {}
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.msalService.handleRedirectObservable().subscribe({
-      next: (result: AuthenticationResult | null) => {
+      next: (result) => {
         if (result) {
           this.msalService.instance.setActiveAccount(result.account);
-          this.usuario = result.account;
-        } else {
-          const accounts = this.msalService.instance.getAllAccounts();
-          if (accounts.length > 0) {
-            this.msalService.instance.setActiveAccount(accounts[0]);
-            this.usuario = accounts[0];
-          }
         }
-      },
-      error: (err) => console.error('Error al procesar redirección:', err)
+      }
     });
+
+    this.msalBroadcastService.msalSubject$
+      .pipe(filter((msg: EventMessage) => msg.eventType === EventType.LOGIN_SUCCESS))
+      .subscribe((result: any) => {
+        if (result.payload?.account) {
+          this.msalService.instance.setActiveAccount(result.payload.account);
+        }
+      });
+
+    if (!this.msalService.instance.getActiveAccount() && this.msalService.instance.getAllAccounts().length > 0) {
+      this.msalService.instance.setActiveAccount(this.msalService.instance.getAllAccounts()[0]);
+    }
   }
 
-  login() {
+  isLoggedIn(): boolean {
+    return this.msalService.instance.getActiveAccount() !== null;
+  }
+
+  obtenerUsuario(): string {
+    const account = this.msalService.instance.getActiveAccount();
+    return account ? `${account.name} (${account.username})` : '';
+  }
+
+  iniciarSesion(): void {
     this.msalService.loginRedirect({
-      scopes: ['openid', 'profile', 'email']
+      scopes: ['openid', 'profile', 'email', this.API_SCOPE]
     });
   }
 
-  logout() {
-    this.msalService.logoutRedirect();
+  cerrarSesion(): void {
+    this.msalService.logoutRedirect({
+      postLogoutRedirectUri: 'http://localhost:4200'
+    });
   }
 
-  consultarBackend() {
-    // El MsalInterceptor configurado en app.config.ts inyecta el Bearer Token automáticamente
-    this.http.get('http://localhost:8080/api/pedidos').subscribe({
-      next: (data) => this.respuestaBackend = data,
-      error: (err) => console.error('Error al conectar con backend:', err)
+  probarConexion(): void {
+    this.respuestaBackend = null;
+    this.errorMensaje = '';
+
+    const activeAccount = this.msalService.instance.getActiveAccount();
+
+    if (!activeAccount) {
+      this.errorMensaje = 'Debes iniciar sesión con Azure AD primero.';
+      return;
+    }
+
+    const request = {
+      scopes: [this.API_SCOPE],
+      account: activeAccount
+    };
+
+    this.msalService.acquireTokenSilent(request).subscribe({
+      next: (response) => {
+        this.ejecutarPeticionBackend(response.accessToken);
+      },
+      error: () => {
+        this.msalService.acquireTokenRedirect(request);
+      }
+    });
+  }
+
+  private ejecutarPeticionBackend(token: string): void {
+    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+
+    this.http.get('http://localhost:8080/api/pedidos', { headers }).subscribe({
+      next: (res: any) => {
+        this.respuestaBackend = res;
+      },
+      error: (err) => {
+        this.errorMensaje = `Error ${err.status}: ${err.statusText || 'Acceso denegado por el backend'}`;
+      }
     });
   }
 }
