@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
-import { MsalGuard } from '@azure/msal-angular';
+import { PedidosComponent } from './pedidos/pedidos.component';
 
 export const routes: Routes = [
-  // Ejemplo de protección de rutas para el proyecto:
-  // { path: 'pedidos', component: PedidosComponent, canActivate: [MsalGuard] }
+  { path: '', redirectTo: 'pedidos', pathMatch: 'full' },
+  { path: 'pedidos', component: PedidosComponent }
 ];
