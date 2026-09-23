@@ -98,7 +98,8 @@ export class AppComponent implements OnInit {
   private ejecutarPeticionBackend(token: string): void {
     const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
 
-    this.http.get('http://localhost:8080/api/pedidos', { headers }).subscribe({
+    // URL actualizada apuntando al API Gateway en AWS
+    this.http.get('https://lwsszyczih.execute-api.us-east-1.amazonaws.com/api/pedidos', { headers }).subscribe({
       next: (res: any) => {
         this.respuestaBackend = res;
       },

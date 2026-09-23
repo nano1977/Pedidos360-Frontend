@@ -7,7 +7,8 @@ import { Pedido } from '../models/pedido.model';
   providedIn: 'root'
 })
 export class PedidoService {
-  private apiUrl = 'http://localhost:8080/api/pedidos';
+  // Apuntando directamente al API Gateway en AWS
+  private apiUrl = 'https://lwsszyczih.execute-api.us-east-1.amazonaws.com/api/pedidos';
 
   constructor(private http: HttpClient) {}
 

@@ -1,4 +1,4 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection, APP_INITIALIZER } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptorsFromDi, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { routes } from './app.routes';
@@ -33,6 +33,11 @@ export function MSALInstanceFactory(): IPublicClientApplication {
   });
 }
 
+// Función que fuerza la inicialización de MSAL antes de que la app arranque
+export function initializeMsal(msalService: MsalService) {
+  return () => msalService.instance.initialize();
+}
+
 export function MSALGuardConfigFactory(): MsalGuardConfiguration {
   return {
     interactionType: InteractionType.Redirect,
@@ -50,7 +55,8 @@ export function MSALGuardConfigFactory(): MsalGuardConfiguration {
 export function MSALInterceptorConfigFactory(): MsalInterceptorConfiguration {
   const protectedResourceMap = new Map<string, Array<string>>();
   
-  protectedResourceMap.set('http://localhost:8080/api/', [
+  // Asocia la URL de AWS API Gateway con los scopes del token
+  protectedResourceMap.set('https://lwsszyczih.execute-api.us-east-1.amazonaws.com/', [
     'api://c926387b-811c-4ffb-a71a-53ff3beaedac/.default'
   ]);
 
@@ -84,6 +90,12 @@ export const appConfig: ApplicationConfig = {
     },
     MsalService,
     MsalGuard,
-    MsalBroadcastService
+    MsalBroadcastService,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeMsal,
+      deps: [MsalService],
+      multi: true
+    }
   ]
 };
