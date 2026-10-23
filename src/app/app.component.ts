@@ -1,52 +1,26 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { MsalService, MsalBroadcastService } from '@azure/msal-angular';
-import { EventMessage, EventType } from '@azure/msal-browser';
-import { filter } from 'rxjs/operators';
+import { RouterOutlet } from '@angular/router';
+import { MsalService } from '@azure/msal-angular';
+import { PedidoService } from './services/pedido.service';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterOutlet],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
 
   respuestaBackend: any = null;
-  errorMensaje: string = '';
-  
-  // Usar el Client ID directo sin "api://" para evitar requerir permisos de admin en Azure
-  private readonly API_SCOPE = 'c926387b-811c-4ffb-a71a-53ff3beaedac/.default';
+  errorMensaje = '';
 
   constructor(
-    private http: HttpClient,
     private msalService: MsalService,
-    private msalBroadcastService: MsalBroadcastService
+    private pedidoService: PedidoService
   ) {}
-
-  ngOnInit(): void {
-    this.msalService.handleRedirectObservable().subscribe({
-      next: (result) => {
-        if (result) {
-          this.msalService.instance.setActiveAccount(result.account);
-        }
-      }
-    });
-
-    this.msalBroadcastService.msalSubject$
-      .pipe(filter((msg: EventMessage) => msg.eventType === EventType.LOGIN_SUCCESS))
-      .subscribe((result: any) => {
-        if (result.payload?.account) {
-          this.msalService.instance.setActiveAccount(result.payload.account);
-        }
-      });
-
-    if (!this.msalService.instance.getActiveAccount() && this.msalService.instance.getAllAccounts().length > 0) {
-      this.msalService.instance.setActiveAccount(this.msalService.instance.getAllAccounts()[0]);
-    }
-  }
 
   isLoggedIn(): boolean {
     return this.msalService.instance.getActiveAccount() !== null;
@@ -59,53 +33,24 @@ export class AppComponent implements OnInit {
 
   iniciarSesion(): void {
     this.msalService.loginRedirect({
-      scopes: ['openid', 'profile', 'email', this.API_SCOPE]
+      scopes: ['openid', 'profile', 'email', environment.api.scope]
     });
   }
 
   cerrarSesion(): void {
     this.msalService.logoutRedirect({
-      postLogoutRedirectUri: 'http://localhost:4200'
+      postLogoutRedirectUri: environment.azure.redirectUri
     });
   }
 
+  // Llama al backend a través del API Gateway; el interceptor envía el JWT
   probarConexion(): void {
     this.respuestaBackend = null;
     this.errorMensaje = '';
-
-    const activeAccount = this.msalService.instance.getActiveAccount();
-
-    if (!activeAccount) {
-      this.errorMensaje = 'Debes iniciar sesión con Azure AD primero.';
-      return;
-    }
-
-    const request = {
-      scopes: [this.API_SCOPE],
-      account: activeAccount
-    };
-
-    this.msalService.acquireTokenSilent(request).subscribe({
-      next: (response) => {
-        this.ejecutarPeticionBackend(response.accessToken);
-      },
-      error: () => {
-        this.msalService.acquireTokenRedirect(request);
-      }
-    });
-  }
-
-  private ejecutarPeticionBackend(token: string): void {
-    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
-
-    // URL actualizada apuntando al API Gateway en AWS
-    this.http.get('https://lwsszyczih.execute-api.us-east-1.amazonaws.com/api/pedidos', { headers }).subscribe({
-      next: (res: any) => {
-        this.respuestaBackend = res;
-      },
-      error: (err) => {
-        this.errorMensaje = `Error ${err.status}: ${err.statusText || 'Acceso denegado por el backend'}`;
-      }
+    this.pedidoService.obtenerPedidos().subscribe({
+      next: (res) => (this.respuestaBackend = res),
+      error: (err) =>
+        (this.errorMensaje = `Error ${err.status}: ${err.statusText || 'Acceso denegado por el backend'}`)
     });
   }
 }

@@ -2,13 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Pedido } from '../models/pedido.model';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class PedidoService {
-  // Apuntando al nuevo API Gateway en AWS
-  private apiUrl = 'https://esqclflrwc.execute-api.us-east-1.amazonaws.com/api/pedidos';
+  // El MsalInterceptor adjunta el JWT automáticamente a estas llamadas
+  private apiUrl = `${environment.api.baseUrl}/api/pedidos`;
 
   constructor(private http: HttpClient) {}
 
