@@ -1,59 +1,82 @@
-# Pedidos360Frontend
+# 🌐 Pedidos360 – Frontend (Angular + Azure AD)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.23.
+Frontend del sistema de gestión de pedidos **Pedidos360**, desarrollado para la asignatura **Desarrollo Cloud Native I (DSY1107) – Duoc UC**.
 
-## Development server
+**Integrantes:** Manuel Álvarez Guevara · Diego Sepúlveda · Martín Escobedo
 
-To start a local development server, run:
+**Backend:** [Pedidos360-Backend](https://github.com/nano1977/Pedidos360-Backend) (3 microservicios Spring Boot + RabbitMQ)
 
-```bash
-ng serve
+---
+
+## ✨ Funcionalidades
+
+- **Inicio de sesión con Azure AD (Microsoft Entra ID)** usando OAuth 2.0 / OpenID Connect con **Authorization Code + PKCE** (MSAL).
+- **Envío automático del JWT** en cada llamada al backend: el `MsalInterceptor` agrega `Authorization: Bearer <token>` a toda petición hacia el API Gateway.
+- **Gestión de pedidos:** listado y creación de pedidos almacenados en Azure PostgreSQL. Cada pedido creado dispara en el backend tres tareas asíncronas por RabbitMQ (notificación, ticket y documento).
+
+---
+
+## 🏗️ Flujo
+
+```
+[ Usuario ] → [ Angular + MSAL ] ──login──> [ Azure AD ] → JWT
+                     │  Authorization: Bearer <JWT>
+                     ▼
+             [ AWS API Gateway ] → [ pedidos-service (Spring Boot) ] → [ Azure PostgreSQL ]
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+---
 
-## Code scaffolding
+## ⚙️ Configuración
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Toda la configuración está centralizada en `src/environments/environment.ts`:
 
-```bash
-ng generate component component-name
+| Propiedad | Descripción |
+| :--- | :--- |
+| `azure.tenantId` | Tenant de Azure AD donde está registrada la aplicación |
+| `azure.clientId` | Id. de aplicación (cliente) del registro en Azure AD |
+| `azure.redirectUri` | URI de redirección de tipo SPA (`http://localhost:4200`) |
+| `api.baseUrl` | URL pública del AWS API Gateway |
+| `api.scope` | Scope solicitado para obtener el access token |
+
+---
+
+## 📁 Estructura
+
+```
+src/
+├── environments/environment.ts      # Azure AD y URL del API Gateway
+├── main.ts                          # Arranque de la aplicación
+└── app/
+    ├── app.config.ts                # MSAL: instancia única, guard e interceptor (JWT)
+    ├── app.component.*              # Login / logout y prueba de conexión
+    ├── app.routes.ts                # Rutas
+    ├── models/pedido.model.ts       # Modelo Pedido
+    ├── services/pedido.service.ts   # Llamadas HTTP al API Gateway
+    └── pedidos/                     # Vista de gestión de pedidos
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+---
+
+## 🚀 Ejecución local
+
+**Requisitos:** Node.js 20+.
 
 ```bash
-ng generate --help
+npm install
+npm start          # o: ng serve
 ```
 
-## Building
+Abrir **http://localhost:4200**, iniciar sesión con la cuenta de Azure AD y usar la sección **Gestión de Pedidos**.
 
-To build the project run:
+Compilación de producción:
 
 ```bash
-ng build
+npm run build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+---
 
-## Running unit tests
+## 🛠️ Tecnologías
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Angular 21 · TypeScript · MSAL Angular 6 / MSAL Browser 5 · Microsoft Entra ID (Azure AD) · AWS API Gateway
